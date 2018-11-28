@@ -1,6 +1,6 @@
 ---
 title: "Lab 9 - Multiple Linear Regression"
-author: "ENTER YOUR NAME HERE"
+author: "tbtertle"
 output:
   html_document: default
 ---
@@ -30,7 +30,8 @@ Use this template to follow along in Lab Week 9. Each code chunk you'll need is 
 ```{r packages, include = FALSE}
 
 # a. Load packages 'tidyverse' and 'stargazer':
-
+library(tidyverse)
+library(stargazer)
 
 
 ```
@@ -40,10 +41,11 @@ Use this template to follow along in Lab Week 9. Each code chunk you'll need is 
 ```{r get_data, include = FALSE}
 
 # a. Read in data as 'homes':
-
+homes = read_csv("slo_homes.csv")
 
 # b. Filter to only include cities "San Luis Obispo", "Santa Maria-Orcutt", "Atascadero", and "Arroyo Grande", and call this new subset 'homes_sub':
-
+homes_sub = homes %>% 
+  filter(City == "San Luis Obispo" | City =="Santa Maria-Orcutt" | City == "Arroyo Grande" | City == "Atascadero")
 
 
 ```
@@ -106,9 +108,13 @@ Use summary() to view the model output and statistics.
 ```{r saturated}
 
 # a. Saturated model: 
-
+homes_lm1 = lm(Price ~ City + Bedrooms + Bathrooms + SqFt + PricePerSqFt + Status, data = homes_sub)
+# there is no uncertaintly in relationship between price/sqft and price because it's derived from it :O
+# there is a problem with this model
 
 # b. Model summary:
+summary(homes_lm1)
+# bedrooms, bathrooms, sqft all say about the size of houses
 
 ```
 
@@ -117,9 +123,14 @@ The next model: Exclude price per square foot, and bedrooms/bathrooms (since the
 ```{r subset}
 
 # a. Updated model with variables City, SqFt, and Status:
+homes_lm2 = lm(Price ~ City + SqFt + Status, data = homes_sub)
 
 # b. Model summary:
+summary(homes_lm2)
 
+# in comparison to the houses in arroyo grande, houses in atascadero will be about $106333.12 more
+# this model is highly sigificantly better than a model w/o any other variables (p < 0.001)
+# 53% of variance price is defined by these variables (R^2)
 ```
 
 Wait...but what if I wanted everything to be with respect to a Regular sale status? Then I need to change my factor levels. We've done this before, here we'll use a different function (fct_relevel) from *forcats* package in the tidyverse. 
@@ -127,20 +138,23 @@ Wait...but what if I wanted everything to be with respect to a Regular sale stat
 ```{r fct_relevel}
 
 # a. Set Status to class 'factor'
-
+homes_sub$Status = factor(homes_sub$Status)
 
 # b. Check to ensure it's a factor now
-
+# Use class()
 
 # c. Check levels:
-
+# Use levels()
 
 # d. Reassign reference level of "Status" to "Regular":
-
+# fct_relevel() function in forcats ..... ?fct_relevel in console
 
 # e. Now run the regression again - same equation, but now the reference level is different (Status = Regular): 
+homes_sub$Status = fct_relevel(homes_sub$Status, "Regular")
+# puts regular first in the levels which will be the reference variable
 
-
+homes_lm3 = lm(Price ~ City + SqFt + Status, data = homes_sub)
+summary(homes_lm3)
 
 ```
 
@@ -156,7 +170,9 @@ Then we can evaluate model diagnostics using the plot() function:
 ```{r diagnostics}
 
 # a. Model diagnostics:
-
+plot(homes_lm3)
+# plot 1, it's clear that for almost all the observations, it spread is pretty even. ignore the 3 outlier points
+# since dataset is large, do not worry about heteroelasicity
 ```
 
 ###6. Model comparison by Akaike Information Criterion
@@ -166,18 +182,23 @@ The AIC is a quantitative metric for model "optimization" that balances complexi
 ```{r AIC}
 
 # a. AIC values for each model
+full_aic = AIC(homes_lm1)
+fin_aic = AIC(homes_lm3)
+
+# not needed to put in report, but is valuable when comparing multiple models
 
 # Answer: which would you pick? 
+# the first one :O ugh im not really payin attention ahhhh poooo :| :[ :( 
 
 ```
 
 ###7. Regression tables with *stargazer*
 
 ```{r stargazer, results = 'asis'}
+# results = 'asis' makes it into a table that will be shown through html
 
 # a. Prepare a nice regression table:
-
-
+stargazer(homes_lm1, homes_lm3, type = "html")
 
 # Note: If you want to work with this in Word, save to html, open, copy and paste into Word. 
 
@@ -228,9 +249,10 @@ Make predictions for the new data using predict():
 ```{r predict}
 
 # a. Make predictions using the new data frame:
+price_predict = predict(homes_lm3, newdata = df_new, se.fit = TRUE, interval = "confidence")
 
 # b. Bind predictions to the data to make it actually useful:
-
+predict_df = data.frame(df_new, price_predict)
 
 
 ```
@@ -240,7 +262,12 @@ Then visualize it!
 ```{r graph, echo = FALSE}
 
 # Create a line graph with square footage on the x-axis, predicted price on y-axis, with color dependent on City and facet_wrapped by sale status (follow along):
+predict_graph = ggplot(predict_df, aes(x = SqFt, y = fit.fit)) +
+  geom_line(aes(color = City)) +
+  geom_point(data = homes_sub, aes(x = SqFt, y = Price), alpha = 0.1) +
+  facet_wrap(~Status)
 
+predict_graph
 
 ```
 
